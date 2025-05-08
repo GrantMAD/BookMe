@@ -5,33 +5,34 @@ import { doc, setDoc } from 'firebase/firestore'
 import { useNavigate } from 'react-router-dom'
 
 const Signup = () => {
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  // Handle signup form submission
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      // Create a new user with email and password
+      // Create user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
 
-      // After user is created, add the user's data to Firestore
+      // Save user data including name to Firestore
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
-        availability: {}, // Initialize with empty availability
+        name: name.trim(), // Save name
+        availability: {},
       })
 
-      // Redirect to dashboard after successful signup
       navigate('/dashboard')
     } catch (err) {
+      console.error(err)
       setError('Failed to create an account. Please try again.')
     }
 
@@ -44,6 +45,14 @@ const Signup = () => {
         <h2 className="text-2xl font-semibold mb-4 text-center">Sign Up</h2>
         {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
         <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="Full Name"
+            className="w-full px-4 py-2 mb-3 border rounded"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
           <input
             type="email"
             placeholder="Email"

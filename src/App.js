@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './firebase'
@@ -13,23 +13,22 @@ import { Toaster } from 'react-hot-toast'
 
 function App() {
   const [user, setUser] = useState(null)
+  const location = useLocation()
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser)
-      } else {
-        setUser(null)
-      }
+      setUser(currentUser || null)
     })
-
     return () => unsub()
   }, [])
+
+  // Check if the route is login or signup to hide Navbar
+  const hideNavbar = location.pathname === '/login' || location.pathname === '/signup'
 
   return (
     <div className="min-h-screen bg-gray-100">
       <Toaster position="top-right" />
-      <Navbar user={user} />
+      {!hideNavbar && <Navbar user={user} />}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />

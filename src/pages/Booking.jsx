@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 
 const Booking = () => {
   const [user] = useAuthState(auth);
+  const [service, setService] = useState('');
   const [allUsers, setAllUsers] = useState([]);
   const [targetUserId, setTargetUserId] = useState('');
   const [availability, setAvailability] = useState({});
@@ -61,15 +62,46 @@ const Booking = () => {
   useEffect(() => {
     const fetchReceivedBookings = async () => {
       if (!user) return;
-  
-      const bookingsSnapshot = await getDocs(collection(db, 'users', user.uid, 'receivedBookings'));
-      const bookings = bookingsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      const bookingsSnapshot = await getDocs(
+        collection(db, 'users', user.uid, 'receivedBookings')
+      );
+      const bookings = await Promise.all(
+        bookingsSnapshot.docs.map(async (docSnap) => {
+          const booking = { id: docSnap.id, ...docSnap.data() };
+
+          // Fetch sender's name using fromUser UID
+          const fromUserRef = doc(db, 'users', booking.fromUser);
+          const fromUserSnap = await getDoc(fromUserRef);
+
+          return {
+            ...booking,
+            fromUserName: fromUserSnap.exists() ? fromUserSnap.data().name || 'Unknown' : 'Unknown',
+            createdAt: booking.createdAt?.toDate(),
+          };
+        })
+      );
+
       setReceivedBookings(bookings);
     };
-  
+
     fetchReceivedBookings();
   }, [user]);
-  
+
+  useEffect(() => {
+    const fetchService = async () => {
+      if (!targetUserId) return;
+
+      const docRef = doc(db, 'users', targetUserId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        setService(docSnap.data().service || 'No service available');
+      }
+    };
+
+    fetchService();
+  }, [targetUserId]);
 
   // Function to check if a slot is already selected
   const isSlotSelected = (day, time) => {
@@ -134,34 +166,45 @@ const Booking = () => {
         >
           {allUsers.map((u) => (
             <option key={u.uid} value={u.uid}>
-              {u.email}
+              {u.name}
             </option>
           ))}
         </select>
       </div>
 
-      {/* Show availability slots */}
-      {Object.entries(availability).map(([day, slots]) => (
-        <div key={day} className="mb-4">
-          <h3 className="capitalize font-semibold mb-2">{day}</h3>
-          <div className="flex flex-wrap gap-2">
-            {slots.map((time) => (
-              <button
-                key={time}
-                onClick={() => handleSlotSelection(day, time)}  // Add or remove the slot from selectedSlots
-                className={`px-3 py-1 rounded border ${
-                  isSlotSelected(day, time) 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-100 hover:bg-gray-200'
-                }`}
-              >
-                {time}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
+      <div key="availability" className="mb-6">
+        {/* Display the service only once, above all available days */}
+        {service && <p className="text-xl font-semibold mb-4">{service}</p>}
 
+        {Object.entries(availability).length > 0 ? (
+          Object.entries(availability).map(([day, slots]) => (
+            <div key={day} className="mb-4">
+              <h3 className="capitalize font-semibold mb-2">{day}</h3>
+              <div className="flex flex-wrap gap-2">
+                {slots.length > 0 ? (
+                  slots.map((time) => (
+                    <button
+                      key={time}
+                      onClick={() => handleSlotSelection(day, time)}  // Add or remove the slot from selectedSlots
+                      className={`px-3 py-1 rounded border ${isSlotSelected(day, time)
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200'
+                        }`}
+                    >
+                      {time}
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-gray-500">Currently no slots available</p>
+                )}
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-gray-500">Currently no slots available</p>
+        )}
+      </div>
+      
       {/* Display selected slots */}
       {selectedSlots.length > 0 && (
         <div className="mt-4">
@@ -192,7 +235,7 @@ const Booking = () => {
           <div>
             {receivedBookings.map((booking, index) => (
               <div key={index} className="p-4 border border-gray-300 rounded mb-4">
-                <p><strong>From:</strong> {booking.fromUser}</p>
+                <p><strong>From:</strong> {booking.fromUserName}</p>
                 <p><strong>Day:</strong> {booking.day}</p>
                 <p><strong>Time:</strong> {booking.time}</p>
                 <p><strong>Booked At:</strong> {booking.createdAt ? booking.createdAt.toLocaleString() : 'N/A'}</p>
