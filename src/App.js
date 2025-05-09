@@ -10,6 +10,7 @@ import Home from './pages/Home'
 import Availability from './pages/Availability'
 import Booking from './pages/Booking'
 import { Toaster } from 'react-hot-toast'
+import Footer from './components/Footer'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -37,6 +38,7 @@ function App() {
         <Route path="/availability" element={<Availability user={user} />} />
         <Route path="/booking" element={<Booking user={user} />} />
       </Routes>
+      {!hideNavbar && <Footer user={user} />}
     </div>
   )
 }
